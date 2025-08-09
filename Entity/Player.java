@@ -45,38 +45,58 @@ public class Player extends Entity {
     public void update() {
         boolean moving = false;
 
+        int dx = 0;
+        int dy = 0;
+
         if (keyB.up) {
-            direction = "up";
-            worldY -= speed;
+            dy -= speed;
             moving = true;
-        } else if (keyB.down) {
-            direction = "down";
-            worldY += speed;
+        }
+        if (keyB.down) {
+            dy += speed;
             moving = true;
-        } else if (keyB.left) {
-            direction = "left";
-            worldX -= speed;
+        }
+        if (keyB.left) {
+            dx -= speed;
             moving = true;
-        } else if (keyB.right) {
-            direction = "right";
-            worldX += speed;
+        }
+        if (keyB.right) {
+            dx += speed;
             moving = true;
         }
 
-        // Chỉ cập nhật ảnh nếu đang di chuyển
+        // Nếu di chuyển chéo thì chuẩn hóa tốc độ (để không nhanh hơn)
+        if (dx != 0 && dy != 0) {
+            double scale = 1 / Math.sqrt(2); // ~0.707
+            dx = (int) (dx * scale);
+            dy = (int) (dy * scale);
+        }
+
+        worldX += dx;
+        worldY += dy;
+
+        // Cập nhật direction (ưu tiên hướng dọc trước, hoặc tuỳ bạn muốn)
+        if (dy < 0)
+            direction = "up";
+        else if (dy > 0)
+            direction = "down";
+        else if (dx < 0)
+            direction = "left";
+        else if (dx > 0)
+            direction = "right";
+
+        // Animation
         if (moving) {
             spriteCounter++;
-            if (spriteCounter > 7) { // 8 ở đây là tốc độ đổi ảnh
+            if (spriteCounter > 7) {
                 spriteNum++;
-                if (spriteNum > 6) { // 6 là số ảnh cuối
-                    spriteNum = 1; // quay lại ảnh đầu
-                }
-                spriteCounter = 0;
+                if (spriteNum > 6)
+                    spriteNum = 1;
+                spriteCounter = 0;;
             }
         } else {
-            spriteNum = 0; // hoặc ảnh đứng yên tuỳ bạn muốn
+            spriteNum = 0;
         }
-
     }
 
     public void draw(Graphics2D g2) {
