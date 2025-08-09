@@ -15,14 +15,22 @@ public class GamePanel extends JPanel implements Runnable {
     final int pixel = 16;
     final int scale = 3;
     public final int realPixel = pixel * scale;
+
+    public int cameraX, cameraY;
+
+    public final int tileSize = realPixel;
+
     public final int maxRowPixel = 12;
     public final int maxColPixel = 16;
     public final int width = realPixel * maxColPixel; // 768
     public final int depth = realPixel * maxRowPixel;// 576
-
+    public final int maxWorldCol = 50; // Maximum columns in the world
+    public final int maxWorldRow = 50; // Maximum rows in the world
+    public final int worldWidth = realPixel * maxWorldCol;
+    public final int worldDepth = realPixel * maxWorldRow;
     Thread gameThread;
     Move keyB = new Move();
-    Player player = new Player(this, keyB);
+    public Player player = new Player(this, keyB);
     TilesManager tilesManager = new TilesManager(this);
 
     // contrustor
@@ -61,6 +69,14 @@ public class GamePanel extends JPanel implements Runnable {
 
     public void update() {
         player.update(); // Update other game logic here if needed
+        // Đặt camera theo player (player.center)
+        int desiredCamX = player.worldX - width / 2 + tileSize / 2;
+        int desiredCamY = player.worldY - depth / 2 + tileSize / 2;
+
+        // Kẹp mép để không vượt ra ngoài map
+        cameraX = Math.max(0, Math.min(desiredCamX, worldWidth - width));
+        cameraY = Math.max(0, Math.min(desiredCamY, worldDepth - depth));
+
     }
 
     public void paintComponent(Graphics g) {

@@ -12,32 +12,31 @@ import Main.Move;
 public class Player extends Entity {
     GamePanel gamePanel;
     Move keyB;
+    public final int screenX, screenY;
 
     public Player(GamePanel gamePanel, Move keyB) {
-        super(); // Call the constructor of Entity to initialize x, y, and speed
+        worldX = gamePanel.realPixel * 23; // Initial world X position
+        worldY = gamePanel.realPixel * 21; // Initial world Y position
         this.gamePanel = gamePanel;
         this.keyB = keyB;
-        this.x = 100; // Initial x position
-        this.y = 100; // Initial y position
+        screenX = gamePanel.width / 2 - gamePanel.realPixel / 2; // Initial x position
+        screenY = gamePanel.depth / 2 - gamePanel.realPixel / 2; // Initial y position
         this.direction = "down"; // Initial direction
         down = new BufferedImage[7];
+        up = new BufferedImage[7];
+        left = new BufferedImage[7];
+        right = new BufferedImage[7];
         getPlayerImage();
     }
 
     public void getPlayerImage() {
         try {
-            up1 = ImageIO.read(getClass().getResourceAsStream("/player/boy_up_1.png"));
-            up2 = ImageIO.read(getClass().getResourceAsStream("/player/boy_up_2.png"));
             for (int i = 0; i < 7; i++) {
                 down[i] = ImageIO.read(getClass().getResourceAsStream("/player/" + (i + 1) + ".png"));
+                up[i] = ImageIO.read(getClass().getResourceAsStream("/player/" + (i + 8) + ".png"));
+                right[i] = ImageIO.read(getClass().getResourceAsStream("/player/" + (i + 15) + ".png"));
+                left[i] = ImageIO.read(getClass().getResourceAsStream("/player/" + (i + 22) + ".png"));
             }
-
-            down1 = ImageIO.read(getClass().getResourceAsStream("/player/boy_down_1.png"));
-            down2 = ImageIO.read(getClass().getResourceAsStream("/player/boy_down_2.png"));
-            left1 = ImageIO.read(getClass().getResourceAsStream("/player/boy_left_1.png"));
-            left2 = ImageIO.read(getClass().getResourceAsStream("/player/boy_left_2.png"));
-            right1 = ImageIO.read(getClass().getResourceAsStream("/player/boy_right_1.png"));
-            right2 = ImageIO.read(getClass().getResourceAsStream("/player/boy_right_2.png"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -48,19 +47,19 @@ public class Player extends Entity {
 
         if (keyB.up) {
             direction = "up";
-            y -= speed;
+            worldY -= speed;
             moving = true;
         } else if (keyB.down) {
             direction = "down";
-            y += speed;
+            worldY += speed;
             moving = true;
         } else if (keyB.left) {
             direction = "left";
-            x -= speed;
+            worldX -= speed;
             moving = true;
         } else if (keyB.right) {
             direction = "right";
-            x += speed;
+            worldX += speed;
             moving = true;
         }
 
@@ -69,11 +68,10 @@ public class Player extends Entity {
             spriteCounter++;
             if (spriteCounter > 7) { // 8 ở đây là tốc độ đổi ảnh
                 spriteNum++;
-                if (spriteNum > 7) { // 7 là số ảnh cuối
+                if (spriteNum > 6) { // 6 là số ảnh cuối
                     spriteNum = 1; // quay lại ảnh đầu
                 }
                 spriteCounter = 0;
-                previousSpriteNum = spriteNum;
             }
         } else {
             spriteNum = 0; // hoặc ảnh đứng yên tuỳ bạn muốn
@@ -97,8 +95,10 @@ public class Player extends Entity {
                 image = right[spriteNum];
                 break;
         }
+        int screenX = worldX - gamePanel.cameraX;
+        int screenY = worldY - gamePanel.cameraY;
 
-        g2.drawImage(image, x, y, gamePanel.realPixel, gamePanel.realPixel, null);
+        g2.drawImage(image, screenX, screenY, gamePanel.tileSize, gamePanel.tileSize, null);
     }
 
 }

@@ -13,7 +13,7 @@ public class TilesManager {
 
     public TilesManager(GamePanel gamePanel) {
         this.gamePanel = gamePanel;
-        mapTile = new int[gamePanel.maxRowPixel][gamePanel.maxColPixel];
+        mapTile = new int[gamePanel.maxWorldRow][gamePanel.maxWorldCol];
         tiles = new Tiles[38]; // Assuming a maximum of 10 different tiles
         getTileImage();
         loadMap("/map/test.txt"); // Load the map from a text file
@@ -22,10 +22,10 @@ public class TilesManager {
     public void loadMap(String path) {
         try {
             BufferedReader br = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream(path)));
-            for (int row = 0; row < gamePanel.maxRowPixel; row++) {
+            for (int row = 0; row < gamePanel.maxWorldRow; row++) {
                 String line = br.readLine();
                 String[] numbers = line.split(" ");
-                for (int col = 0; col < gamePanel.maxColPixel; col++) {
+                for (int col = 0; col < gamePanel.maxWorldCol; col++) {
                     mapTile[row][col] = Integer.parseInt(numbers[col]);
                 }
             }
@@ -48,15 +48,30 @@ public class TilesManager {
     }
 
     public void draw(Graphics2D g2) {
-        for (int row = 0; row < gamePanel.maxRowPixel; row++) {
-            for (int col = 0; col < gamePanel.maxColPixel; col++) {
-                int tileIndex = mapTile[row][col];
-                int x = col * gamePanel.realPixel;
-                int y = row * gamePanel.realPixel;
+        final int tile = gamePanel.tileSize;
 
-                if (tileIndex >= 0 && tileIndex < tiles.length) {
-                    g2.drawImage(tiles[tileIndex].image, x, y, gamePanel.realPixel, gamePanel.realPixel, null);
-                }
+        // Giới hạn tile hiển thị theo camera + màn hình
+        int firstCol = Math.max(0, gamePanel.cameraX / tile);
+        int firstRow = Math.max(0, gamePanel.cameraY / tile);
+
+        int lastCol = Math.min(gamePanel.maxWorldCol - 1,
+                (gamePanel.cameraX + gamePanel.width - 1) / tile);
+        int lastRow = Math.min(gamePanel.maxWorldRow - 1,
+                (gamePanel.cameraY + gamePanel.depth - 1) / tile);
+
+        for (int row = firstRow; row <= lastRow; row++) {
+            for (int col = firstCol; col <= lastCol; col++) {
+                int tileIndex = mapTile[row][col];
+                if (tileIndex < 0 || tileIndex >= tiles.length || tiles[tileIndex] == null)
+                    continue;
+
+                // WORLD -> SCREEN
+                int worldX = col * tile;
+                int worldY = row * tile;
+                int screenX = worldX - gamePanel.cameraX;
+                int screenY = worldY - gamePanel.cameraY;
+
+                g2.drawImage(tiles[tileIndex].image, screenX, screenY, tile, tile, null);
             }
         }
     }
