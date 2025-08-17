@@ -3,9 +3,8 @@ package Entity;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-
+import java.awt.Rectangle;
 import javax.imageio.ImageIO;
-
 import Main.GamePanel;
 import Main.Move;
 
@@ -26,6 +25,7 @@ public class Player extends Entity {
         up = new BufferedImage[7];
         left = new BufferedImage[7];
         right = new BufferedImage[7];
+        solidArea = new Rectangle(8, 16, 32, 32); // Define the collision area
         getPlayerImage();
     }
 
@@ -44,9 +44,7 @@ public class Player extends Entity {
 
     public void update() {
         boolean moving = false;
-
-        int dx = 0;
-        int dy = 0;
+        int dx = 0, dy = 0;
 
         if (keyB.up) {
             dy -= speed;
@@ -65,17 +63,14 @@ public class Player extends Entity {
             moving = true;
         }
 
-        // Nếu di chuyển chéo thì chuẩn hóa tốc độ (để không nhanh hơn)
+        // Chuẩn hóa tốc độ khi đi chéo
         if (dx != 0 && dy != 0) {
-            double scale = 1 / Math.sqrt(2); // ~0.707
-            dx = (int) (dx * scale);
-            dy = (int) (dy * scale);
+            double scale = 1 / Math.sqrt(2);
+            dx = (int) Math.round(dx * scale);
+            dy = (int) Math.round(dy * scale);
         }
 
-        worldX += dx;
-        worldY += dy;
-
-        // Cập nhật direction (ưu tiên hướng dọc trước, hoặc tuỳ bạn muốn)
+        // Cập nhật hướng
         if (dy < 0)
             direction = "up";
         else if (dy > 0)
@@ -85,6 +80,38 @@ public class Player extends Entity {
         else if (dx > 0)
             direction = "right";
 
+        // === CẬP NHẬT SOLID AREA THEO WORLD HIỆN TẠI ===
+        // (giả sử solidArea.x/y là offset tương đối so với worldX/Y)
+        Rectangle hitboxNow = new Rectangle(
+                worldX + solidArea.x,
+                worldY + solidArea.y,
+                solidArea.width,
+                solidArea.height);
+
+        // === DI CHUYỂN THEO TỪNG TRỤC (PREDICTIVE CHECK) ===
+
+        // 1) Trục X
+        if (dx != 0) {
+            Rectangle nextX = new Rectangle(hitboxNow);
+            nextX.x += dx;
+            boolean blockedX = gamePanel.collisionCheck.isBlocked(nextX); // bạn đổi tên theo API của bạn
+            if (!blockedX) {
+                worldX += dx;
+                hitboxNow.x += dx; // nhớ cập nhật hitboxNow để dùng tiếp cho trục Y
+            }
+        }
+
+        // 2) Trục Y
+        if (dy != 0) {
+            Rectangle nextY = new Rectangle(hitboxNow);
+            nextY.y += dy;
+            boolean blockedY = gamePanel.collisionCheck.isBlocked(nextY);
+            if (!blockedY) {
+                worldY += dy;
+                hitboxNow.y += dy;
+            }
+        }
+
         // Animation
         if (moving) {
             spriteCounter++;
@@ -92,10 +119,10 @@ public class Player extends Entity {
                 spriteNum++;
                 if (spriteNum > 6)
                     spriteNum = 1;
-                spriteCounter = 0;;
+                spriteCounter = 0;
             }
         } else {
-            spriteNum = 0;
+            spriteNum = 0; // frame đứng yên
         }
     }
 

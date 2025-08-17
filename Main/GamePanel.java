@@ -29,6 +29,7 @@ public class GamePanel extends JPanel implements Runnable {
     public final int worldWidth = realPixel * maxWorldCol;
     public final int worldDepth = realPixel * maxWorldRow;
     Thread gameThread;
+    public CollisionCheck collisionCheck = new CollisionCheck(this);
     Move keyB = new Move();
     public Player player = new Player(this, keyB);
     TilesManager tilesManager = new TilesManager(this);

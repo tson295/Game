@@ -8,13 +8,13 @@ import java.io.InputStreamReader;
 
 public class TilesManager {
     GamePanel gamePanel;
-    Tiles[] tiles;
-    int mapTile[][];
+    public Tiles[] tiles;
+    public int mapTile[][];
 
     public TilesManager(GamePanel gamePanel) {
         this.gamePanel = gamePanel;
         mapTile = new int[gamePanel.maxWorldRow][gamePanel.maxWorldCol];
-        tiles = new Tiles[38]; // Assuming a maximum of 10 different tiles
+        tiles = new Tiles[50]; // Assuming a maximum of 10 different tiles
         getTileImage();
         loadMap("/map/test.txt"); // Load the map from a text file
     }
@@ -37,11 +37,15 @@ public class TilesManager {
 
     private void getTileImage() {
         try {
-            for (int i = 1; i <= 37; i++) {
+            for (int i = 1; i <= 38; i++) {
                 tiles[i] = new Tiles();
                 tiles[i].image = ImageIO.read(getClass().getResourceAsStream("/tiles/" + String.format("%03d", i) + ".png"));
             }
-
+            tiles[32].collision = true; // rock tile
+            tiles[38].collision = true; // tree tile
+            tiles[18].collision = true; // water tile
+            tiles[19].collision = true; // water tile
+            tiles[16].collision = true; // tree tile
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -75,5 +79,5 @@ public class TilesManager {
             }
         }
     }
-
+    
 }
