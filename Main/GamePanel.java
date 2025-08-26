@@ -8,6 +8,8 @@ import java.awt.Graphics2D;
 import javax.swing.JPanel;
 
 import Entity.Player;
+import objects.SetObjects;
+import objects.SuperObject;
 import tiles.TilesManager;
 
 public class GamePanel extends JPanel implements Runnable {
@@ -33,6 +35,8 @@ public class GamePanel extends JPanel implements Runnable {
     Move keyB = new Move();
     public Player player = new Player(this, keyB);
     TilesManager tilesManager = new TilesManager(this);
+    public SuperObject obj[] = new SuperObject[10];
+    public SetObjects setObjs = new SetObjects(this);
 
     // contrustor
     public GamePanel() {
@@ -41,6 +45,11 @@ public class GamePanel extends JPanel implements Runnable {
         this.setDoubleBuffered(true);
         this.addKeyListener(keyB);
         this.setFocusable(true);
+    }
+
+    // setup object
+    public void setupGame() {
+        setObjs.setObject();
     }
 
     public void startGameThread() {
@@ -84,6 +93,12 @@ public class GamePanel extends JPanel implements Runnable {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
         tilesManager.draw(g2);
+        // draw object after tiles
+        for(int i = 0; i < obj.length; i++){
+            if(obj[i] != null){
+                obj[i].draw(g2, this);
+            }
+        }
         player.draw(g2);
         g2.dispose();
     }

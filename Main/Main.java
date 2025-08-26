@@ -14,6 +14,7 @@ public class Main {
         widow.add(gamePanel);
         widow.pack();
         widow.setLocationRelativeTo(null);
+        gamePanel.setupGame(); // <-- Thiết lập các đối tượng trong game
         gamePanel.startGameThread();
         gamePanel.requestFocusInWindow();
     }
