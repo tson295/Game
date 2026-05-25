@@ -8,6 +8,7 @@ public class Entity {
     public int speed = 3;
     public int maxHp = 6, hp = 6;
     public int attack = 1, defense = 0;
+    public int level = 1;          // Level của entity (dùng để scale kẻ thù)
     public boolean alive = true;
     public BufferedImage up[], down[], left[], right[];
     public String direction;

@@ -5,19 +5,20 @@ import java.awt.event.KeyListener;
 
 public class Move implements KeyListener {
 
-    // Held keys
+    // Held keys (movement)
     public boolean up, down, left, right;
 
-    // One-shot keys (reset by GamePanel after handling)
-    public boolean interactPressed;  // E
-    public boolean attackPressed;    // Space / F
-    public boolean escPressed;       // ESC
-    public boolean enterPressed;     // Enter
-    public boolean restartPressed;   // R
-    public boolean qPressed;         // Q (quit in pause)
+    // One-shot keys – reset by GamePanel after consuming
+    public boolean interactPressed;   // E
+    public boolean attackPressed;     // Space / F
+    public boolean escPressed;        // ESC
+    public boolean enterPressed;      // Enter
+    public boolean restartPressed;    // R
+    public boolean qPressed;          // Q  (pause → title)
+    public boolean iPressed;          // I  (inventory toggle)
+    public boolean mPressed;          // M  (minimap toggle)
 
-    @Override
-    public void keyTyped(KeyEvent e) { }
+    @Override public void keyTyped(KeyEvent e) { }
 
     @Override
     public void keyPressed(KeyEvent e) {
@@ -32,6 +33,8 @@ public class Move implements KeyListener {
             case KeyEvent.VK_ENTER                -> enterPressed    = true;
             case KeyEvent.VK_R                    -> restartPressed  = true;
             case KeyEvent.VK_Q                    -> qPressed        = true;
+            case KeyEvent.VK_I                    -> iPressed        = true;
+            case KeyEvent.VK_M                    -> mPressed        = true;
         }
     }
 
