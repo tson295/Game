@@ -1,5 +1,7 @@
 package objects;
+
 import java.awt.Graphics2D;
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import Main.GamePanel;
 
@@ -9,15 +11,18 @@ public class SuperObject {
     public int worldX, worldY;
     public BufferedImage image;
     public boolean collision = false;
-    public void draw(Graphics2D g2, GamePanel gp){
-        int screenX = worldX - gp.player.worldX + gp.player.screenX;
-        int screenY = worldY - gp.player.worldY + gp.player.screenY;
 
-        if(worldX + gp.realPixel > gp.player.worldX - gp.player.screenX &&
-           worldX - gp.realPixel < gp.player.worldX + gp.player.screenX &&
-           worldY + gp.realPixel > gp.player.worldY - gp.player.screenY &&
-           worldY - gp.realPixel < gp.player.worldY + gp.player.screenY){
-            g2.drawImage(image, screenX, screenY, gp.realPixel, gp.realPixel, null);
-        }
+    /** Vùng va chạm tương đối so với (worldX, worldY) */
+    public Rectangle solidArea = new Rectangle(4, 4, 40, 40);
+
+    public void draw(Graphics2D g2, GamePanel gp) {
+        int screenX = worldX - gp.cameraX;
+        int screenY = worldY - gp.cameraY;
+
+        // Chỉ vẽ nếu nằm trong vùng nhìn thấy
+        if (screenX + gp.tileSize < 0 || screenX > gp.width ||
+            screenY + gp.tileSize < 0 || screenY > gp.depth) return;
+
+        g2.drawImage(image, screenX, screenY, gp.tileSize, gp.tileSize, null);
     }
 }

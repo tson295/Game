@@ -1,21 +1,25 @@
 package Main;
 
 import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
 
 public class Main {
     public static void main(String[] args) {
-        JFrame widow = new JFrame();
-        widow.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        widow.setResizable(false);
-        widow.setTitle("Game of NVTS");
-        widow.setVisible(true);
-        widow.setResizable(true); // <-- Cho phép resize cửa sổ
-        GamePanel gamePanel = new GamePanel();
-        widow.add(gamePanel);
-        widow.pack();
-        widow.setLocationRelativeTo(null);
-        gamePanel.setupGame(); // <-- Thiết lập các đối tượng trong game
-        gamePanel.startGameThread();
-        gamePanel.requestFocusInWindow();
+        SwingUtilities.invokeLater(() -> {
+            JFrame window = new JFrame();
+            window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            window.setResizable(false);
+            window.setTitle("Dungeon Quest – Game của NVTS");
+
+            GamePanel gamePanel = new GamePanel();
+            window.add(gamePanel);
+            window.pack();
+            window.setLocationRelativeTo(null);
+            window.setVisible(true);
+
+            gamePanel.setupGame();
+            gamePanel.startGameThread();
+            gamePanel.requestFocusInWindow();
+        });
     }
 }
