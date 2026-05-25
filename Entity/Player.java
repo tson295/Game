@@ -15,40 +15,46 @@ public class Player extends Entity {
     final GamePanel gp;
     final Move keyB;
 
-    // Vị trí trên màn hình (luôn cố định ở giữa)
+    /** Vị trí cố định trên màn hình (luôn ở giữa) */
     public final int screenX, screenY;
 
-    // Inventory
-    public int keys = 0;
+    // ── Inventory / stats ──
+    public int keys   = 0;
+    public int coins  = 0;
+    public int xp     = 0;
+    public int xpToNextLevel = 10;
+    public int levelUpTimer  = 0;   // flash khi lên cấp
 
-    // Combat
-    public int invincibleTimer = 0;  // bất tử tạm thời sau khi bị đánh
-    private int attackTimer    = 0;  // đếm ngược cooldown tấn công
+    // ── Equipment slots ──
+    public SuperObject equippedWeapon  = null;  // SwordItem | AxeItem
+    public SuperObject equippedShield  = null;  // ShieldWood | ShieldBlue
+    public SuperObject equippedBoots   = null;  // BootsItem
+    public SuperObject equippedLantern = null;  // LanternItem
+
+    // ── Combat ──
+    public int invincibleTimer = 0;
+    private int attackTimer    = 0;
     private static final int ATTACK_CD = 22;
     private boolean showAttack = false;
 
-    // ─────────────────────────────────────────────────────────────────
+    // ── Constructor ──────────────────────────────────────────────────
     public Player(GamePanel gp, Move keyB) {
         this.gp   = gp;
         this.keyB = keyB;
 
-        worldX   = gp.realPixel * 23;
-        worldY   = gp.realPixel * 21;
-        screenX  = gp.width  / 2 - gp.realPixel / 2;
-        screenY  = gp.depth  / 2 - gp.realPixel / 2;
+        worldX   = gp.tileSize * 23;
+        worldY   = gp.tileSize * 21;
+        screenX  = gp.width  / 2 - gp.tileSize / 2;
+        screenY  = gp.depth  / 2 - gp.tileSize / 2;
         direction = "down";
 
-        maxHp = 6; hp = 6;
-        attack  = 2;
-        defense = 0;
-        speed   = 3;
+        maxHp  = 6; hp = 6;
+        attack = 2; defense = 0; speed = 3;
+        level  = 1;
 
         solidArea = new Rectangle(8, 16, 32, 32);
-
-        down  = new BufferedImage[7];
-        up    = new BufferedImage[7];
-        left  = new BufferedImage[7];
-        right = new BufferedImage[7];
+        down  = new BufferedImage[7]; up   = new BufferedImage[7];
+        left  = new BufferedImage[7]; right = new BufferedImage[7];
         loadSprites();
     }
 
@@ -63,32 +69,52 @@ public class Player extends Entity {
         } catch (IOException e) { e.printStackTrace(); }
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // ── Effective stats (base + equipment) ──────────────────────────
+    public int effectiveAttack() {
+        int b = 0;
+        if (equippedWeapon instanceof EquipItem ei) b += ei.attackBonus;
+        return attack + b;
+    }
+
+    public int effectiveDefense() {
+        int b = 0;
+        if (equippedShield instanceof EquipItem ei) b += ei.defenseBonus;
+        return defense + b;
+    }
+
+    public int effectiveSpeed() {
+        int b = 0;
+        if (equippedBoots instanceof EquipItem ei) b += ei.speedBonus;
+        if (equippedWeapon instanceof AxeItem ax)   b += ax.speedBonus; // Axe penalty
+        return Math.max(1, speed + b);
+    }
+
+    // ── Update ───────────────────────────────────────────────────────
     public void update() {
         if (!alive) return;
 
-        // ── Nhập input ──
+        // Movement
         boolean moving = false;
         int dx = 0, dy = 0;
-        if (keyB.up)    { dy -= speed; moving = true; }
-        if (keyB.down)  { dy += speed; moving = true; }
-        if (keyB.left)  { dx -= speed; moving = true; }
-        if (keyB.right) { dx += speed; moving = true; }
+        if (keyB.up)    { dy -= effectiveSpeed(); moving = true; }
+        if (keyB.down)  { dy += effectiveSpeed(); moving = true; }
+        if (keyB.left)  { dx -= effectiveSpeed(); moving = true; }
+        if (keyB.right) { dx += effectiveSpeed(); moving = true; }
 
-        // Chuẩn hóa đi chéo
+        // Normalize diagonal
         if (dx != 0 && dy != 0) {
             double f = 1.0 / Math.sqrt(2);
             dx = (int) Math.round(dx * f);
             dy = (int) Math.round(dy * f);
         }
 
-        // Cập nhật hướng nhìn
+        // Direction
         if      (dy < 0) direction = "up";
         else if (dy > 0) direction = "down";
         else if (dx < 0) direction = "left";
         else if (dx > 0) direction = "right";
 
-        // ── Di chuyển (kiểm tra va chạm từng trục) ──
+        // Collision-aware movement
         Rectangle box = currentBox();
         if (dx != 0) {
             Rectangle nx = new Rectangle(box); nx.x += dx;
@@ -103,35 +129,26 @@ public class Player extends Entity {
             }
         }
 
-        // ── Animation ──
+        // Animation
         if (moving) {
             spriteCounter++;
-            if (spriteCounter > 7) {
-                spriteNum = (spriteNum % 6) + 1;
-                spriteCounter = 0;
-            }
-        } else {
-            spriteNum = 0;
-        }
+            if (spriteCounter > 7) { spriteNum = (spriteNum % 6) + 1; spriteCounter = 0; }
+        } else { spriteNum = 0; }
 
-        // ── Bộ đếm ──
+        // Timers
         if (invincibleTimer > 0) invincibleTimer--;
-        if (attackTimer > 0) { attackTimer--; showAttack = true; }
-        else                 { showAttack = false; }
+        if (attackTimer > 0)     { attackTimer--; showAttack = true; }
+        else                     { showAttack = false; }
+        if (levelUpTimer > 0)    levelUpTimer--;
 
-        // ── Tương tác (E) ──
-        if (keyB.interactPressed) {
-            keyB.interactPressed = false;
-            interact();
-        }
+        // Auto-pickup coins
+        autoPickupCoins();
 
-        // ── Tấn công (Space) ──
-        if (keyB.attackPressed) {
-            keyB.attackPressed = false;
-            doAttack();
-        }
+        // Keys
+        if (keyB.interactPressed) { keyB.interactPressed = false; interact(); }
+        if (keyB.attackPressed)   { keyB.attackPressed   = false; doAttack(); }
 
-        // ── Kiểm tra chết ──
+        // Death check
         if (hp <= 0) {
             alive = false;
             Sound.play("die");
@@ -139,165 +156,245 @@ public class Player extends Entity {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // ── Auto-pickup coins (walk-over) ────────────────────────────────
+    private void autoPickupCoins() {
+        Rectangle myBox = currentBox();
+        for (int i = 0; i < gp.obj.length; i++) {
+            if (gp.obj[i] instanceof Coin c) {
+                Rectangle cBox = new Rectangle(
+                    gp.obj[i].worldX + gp.obj[i].solidArea.x,
+                    gp.obj[i].worldY + gp.obj[i].solidArea.y,
+                    gp.obj[i].solidArea.width, gp.obj[i].solidArea.height);
+                if (myBox.intersects(cBox)) {
+                    coins += c.value;
+                    gp.obj[i] = null;
+                    Sound.play("coin");
+                    gp.ui.showMessage("+" + c.value + " 🪙  [Tổng: " + coins + "]");
+                }
+            }
+        }
+    }
+
+    // ── Interact (E) ─────────────────────────────────────────────────
     private void interact() {
         Rectangle reach = interactBox();
 
         for (int i = 0; i < gp.obj.length; i++) {
             SuperObject o = gp.obj[i];
             if (o == null) continue;
-
             Rectangle oBox = new Rectangle(
-                o.worldX + o.solidArea.x,
-                o.worldY + o.solidArea.y,
+                o.worldX + o.solidArea.x, o.worldY + o.solidArea.y,
                 o.solidArea.width, o.solidArea.height);
-
             if (!reach.intersects(oBox)) continue;
 
-            // ── Phản ứng theo loại object ──
-            if (o instanceof Key) {
-                keys++;
-                gp.obj[i] = null;
-                gp.ui.showMessage("Nhặt được chìa khóa!  [🗝 × " + keys + "]");
-                Sound.play("pickup");
-
-            } else if (o instanceof Door) {
-                if (keys > 0) {
-                    keys--;
-                    gp.obj[i] = null;
-                    gp.ui.showMessage("Cửa đã mở!  [🗝 còn lại: " + keys + "]");
-                    Sound.play("door");
-                } else {
-                    gp.ui.showMessage("Cần chìa khóa để mở cửa!");
-                    Sound.play("nope");
-                }
-
-            } else if (o instanceof Chest chest) {
-                if (!chest.opened) {
-                    chest.opened = true;
-                    try {
-                        chest.image = javax.imageio.ImageIO.read(
-                            getClass().getResourceAsStream("/objects/chest_opened.png"));
-                    } catch (Exception ex) { ex.printStackTrace(); }
-                    gp.gameState = GameState.WIN;
-                    Sound.play("win");
-                }
-
-            } else if (o instanceof Potion pot) {
-                if (hp < maxHp) {
-                    hp = Math.min(maxHp, hp + pot.healAmount);
-                    gp.obj[i] = null;
-                    gp.ui.showMessage("Uống thuốc! +" + pot.healAmount + " HP  ❤");
-                    Sound.play("pickup");
-                } else {
-                    gp.ui.showMessage("HP đã đầy rồi!");
-                }
-            }
-            break; // Chỉ tương tác 1 object mỗi lần
+            handleObject(i, o);
+            break;
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    private void handleObject(int idx, SuperObject o) {
+        if (o instanceof Key) {
+            keys++;
+            gp.obj[idx] = null;
+            gp.ui.showMessage("Nhặt chìa khóa! [🗝 × " + keys + "]");
+            Sound.play("pickup");
+
+        } else if (o instanceof Door) {
+            if (keys > 0) {
+                keys--;
+                gp.obj[idx] = null;
+                gp.ui.showMessage("Cửa đã mở!  [🗝 còn: " + keys + "]");
+                Sound.play("door");
+            } else {
+                gp.ui.showMessage("Cần chìa khóa để mở cửa!");
+                Sound.play("nope");
+            }
+
+        } else if (o instanceof Chest chest) {
+            if (!chest.opened) {
+                chest.opened = true;
+                try { chest.image = ImageIO.read(getClass().getResourceAsStream("/objects/chest_opened.png")); }
+                catch (Exception ex) { ex.printStackTrace(); }
+                gp.gameState = GameState.WIN;
+                Sound.play("win");
+            }
+
+        } else if (o instanceof Potion pot) {
+            if (hp < maxHp) {
+                hp = Math.min(maxHp, hp + pot.healAmount);
+                gp.obj[idx] = null;
+                gp.ui.showMessage("Uống thuốc! +" + pot.healAmount + " HP ❤");
+                Sound.play("pickup");
+            } else {
+                gp.ui.showMessage("HP đã đầy rồi!");
+            }
+
+        } else if (o instanceof EquipItem equip) {
+            equipItem(equip);
+            gp.obj[idx] = null;
+
+        } else if (o instanceof Portal portal) {
+            if (gp.currentLevel < gp.MAX_LEVEL) {
+                Sound.play("portal");
+                gp.ui.showMessage("Chuyển sang Màn " + portal.targetLevel + "!");
+                Main.SaveManager.save(gp);
+                gp.loadLevel(portal.targetLevel);
+            } else {
+                // Level 3 portal = WIN
+                gp.gameState = GameState.WIN;
+                Sound.play("win");
+            }
+
+        } else if (o instanceof NPC) {
+            gp.gameState = GameState.SHOP;
+            Sound.play("shop");
+        }
+    }
+
+    public void equipItem(EquipItem equip) {
+        switch (equip.slot) {
+            case "weapon"  -> equippedWeapon  = equip;
+            case "shield"  -> equippedShield  = equip;
+            case "boots"   -> equippedBoots   = equip;
+            case "lantern" -> equippedLantern = equip;
+        }
+        gp.ui.showMessage("Trang bị: " + equip.name + "!");
+        Sound.play("equip");
+    }
+
+    // ── Attack (Space) ────────────────────────────────────────────────
     private void doAttack() {
         if (attackTimer > 0) return;
         attackTimer = ATTACK_CD;
         Sound.play("attack");
-
         Rectangle atkBox = attackBox();
 
         for (Enemy enemy : gp.enemies) {
             if (enemy == null || !enemy.alive) continue;
             Rectangle eBox = new Rectangle(
-                enemy.worldX + enemy.solidArea.x,
-                enemy.worldY + enemy.solidArea.y,
+                enemy.worldX + enemy.solidArea.x, enemy.worldY + enemy.solidArea.y,
                 enemy.solidArea.width, enemy.solidArea.height);
-
             if (!atkBox.intersects(eBox)) continue;
 
-            int dmg = Math.max(1, attack - enemy.defense);
-            enemy.hp   -= dmg;
+            int dmg = Math.max(1, effectiveAttack() - enemy.defense);
+            enemy.hp -= dmg;
             enemy.hitTimer = 12;
 
             if (enemy.hp <= 0) {
                 enemy.alive = false;
+                gainXP(enemy.xpReward);
                 dropLoot(enemy);
             }
         }
     }
 
+    public void gainXP(int amount) {
+        xp += amount;
+        while (xp >= xpToNextLevel) {
+            xp -= xpToNextLevel;
+            levelUp();
+        }
+    }
+
+    private void levelUp() {
+        level++;
+        xpToNextLevel = level * 12;
+        maxHp += 2; hp = maxHp;
+        if (level % 2 == 0) attack++;
+        else                 defense++;
+        levelUpTimer = 150;
+        gp.ui.showMessage("⬆ LEVEL UP!  Lv." + level
+            + "  HP+" + maxHp + "  ATK+" + effectiveAttack());
+        Sound.play("levelup");
+    }
+
     private void dropLoot(Enemy enemy) {
-        // 40% cơ hội rơi thuốc
-        if (Math.random() < 0.40) {
-            for (int i = 0; i < gp.obj.length; i++) {
-                if (gp.obj[i] == null) {
-                    gp.obj[i] = new Potion();
-                    gp.obj[i].worldX = enemy.worldX;
-                    gp.obj[i].worldY = enemy.worldY;
-                    break;
-                }
+        java.util.Random rnd = new java.util.Random();
+
+        // Boss drops guaranteed coins
+        int coinAmt = (enemy.type == 3) ? rnd.nextInt(11) + 20
+                    : rnd.nextBoolean()  ? 1 : 0;
+        if (coinAmt > 0) spawnObj(new Coin(coinAmt), enemy.worldX, enemy.worldY);
+
+        double r = rnd.nextDouble();
+        if      (r < 0.25) spawnObj(new Potion(),   enemy.worldX + 10, enemy.worldY + 10);
+        else if (r < 0.30) {
+            EquipItem drop = randomEquip(rnd);
+            if (drop != null) spawnObj(drop, enemy.worldX + 5, enemy.worldY + 5);
+        }
+    }
+
+    private EquipItem randomEquip(java.util.Random rnd) {
+        return switch (rnd.nextInt(5)) {
+            case 0 -> new SwordItem();
+            case 1 -> new AxeItem();
+            case 2 -> new ShieldWood();
+            case 3 -> new BootsItem();
+            default -> new LanternItem();
+        };
+    }
+
+    private void spawnObj(SuperObject obj, int wx, int wy) {
+        for (int i = 0; i < gp.obj.length; i++) {
+            if (gp.obj[i] == null) {
+                gp.obj[i] = obj;
+                obj.worldX = wx; obj.worldY = wy;
+                return;
             }
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    /** Hitbox hiện tại (tọa độ world) */
+    // ── Hitbox helpers ───────────────────────────────────────────────
     private Rectangle currentBox() {
         return new Rectangle(worldX + solidArea.x, worldY + solidArea.y,
                              solidArea.width, solidArea.height);
     }
 
-    /** Vùng tầm với tương tác (mở rộng 52px về phía đang nhìn) */
     private Rectangle interactBox() {
-        Rectangle b = currentBox();
-        int range = 52;
+        Rectangle b = currentBox(); int r = 52;
         return switch (direction) {
-            case "up"    -> new Rectangle(b.x, b.y - range, b.width, b.height + range);
-            case "down"  -> new Rectangle(b.x, b.y, b.width, b.height + range);
-            case "left"  -> new Rectangle(b.x - range, b.y, b.width + range, b.height);
-            default      -> new Rectangle(b.x, b.y, b.width + range, b.height); // right
+            case "up"   -> new Rectangle(b.x, b.y - r, b.width, b.height + r);
+            case "down" -> new Rectangle(b.x, b.y, b.width, b.height + r);
+            case "left" -> new Rectangle(b.x - r, b.y, b.width + r, b.height);
+            default     -> new Rectangle(b.x, b.y, b.width + r, b.height);
         };
     }
 
-    /** Vùng tầm tấn công (mở rộng 64px về phía đang nhìn) */
     private Rectangle attackBox() {
-        Rectangle b = currentBox();
-        int range = 64;
+        Rectangle b = currentBox(); int r = 64;
         return switch (direction) {
-            case "up"    -> new Rectangle(b.x, b.y - range, b.width, b.height + range);
-            case "down"  -> new Rectangle(b.x, b.y, b.width, b.height + range);
-            case "left"  -> new Rectangle(b.x - range, b.y, b.width + range, b.height);
-            default      -> new Rectangle(b.x, b.y, b.width + range, b.height); // right
+            case "up"   -> new Rectangle(b.x, b.y - r, b.width, b.height + r);
+            case "down" -> new Rectangle(b.x, b.y, b.width, b.height + r);
+            case "left" -> new Rectangle(b.x - r, b.y, b.width + r, b.height);
+            default     -> new Rectangle(b.x, b.y, b.width + r, b.height);
         };
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // ── Draw ─────────────────────────────────────────────────────────
     public void draw(Graphics2D g2) {
         // Nhấp nháy khi bất tử
-        if (invincibleTimer > 0 && (invincibleTimer / 5) % 2 == 0) {
+        if (invincibleTimer > 0 && (invincibleTimer / 5) % 2 == 0)
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.25f));
-        }
 
         BufferedImage img = switch (direction) {
-            case "up"    -> up[spriteNum];
-            case "left"  -> left[spriteNum];
-            case "right" -> right[spriteNum];
-            default      -> down[spriteNum];
+            case "up"   -> up[spriteNum];
+            case "left" -> left[spriteNum];
+            case "right"-> right[spriteNum];
+            default     -> down[spriteNum];
         };
 
-        int sx = worldX - gp.cameraX;
-        int sy = worldY - gp.cameraY;
-        g2.drawImage(img, sx, sy, gp.tileSize, gp.tileSize, null);
+        g2.drawImage(img, worldX - gp.cameraX, worldY - gp.cameraY,
+                     gp.tileSize, gp.tileSize, null);
         g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
 
-        // Hiển thị vùng tấn công
+        // Hiệu ứng vùng tấn công
         if (showAttack) {
             Rectangle ab = attackBox();
-            int ax = ab.x - gp.cameraX;
-            int ay = ab.y - gp.cameraY;
+            int ax = ab.x - gp.cameraX, ay = ab.y - gp.cameraY;
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.35f));
             g2.setColor(new Color(255, 220, 50));
             g2.fillRect(ax, ay, ab.width, ab.height);
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.8f));
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.85f));
             g2.setColor(new Color(255, 140, 0));
             g2.setStroke(new BasicStroke(2));
             g2.drawRect(ax, ay, ab.width, ab.height);
