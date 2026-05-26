@@ -32,10 +32,11 @@ public class Player extends Entity {
     public SuperObject equippedLantern = null;  // LanternItem
 
     // ── Combat ──
-    public int invincibleTimer = 0;
-    private int attackTimer    = 0;
+    public int invincibleTimer  = 0;
+    private int attackTimer     = 0;
     private static final int ATTACK_CD = 22;
-    private boolean showAttack = false;
+    private boolean showAttack  = false;
+    private int interactCooldown = 0;  // frames cooldown giữa 2 lần interact
 
     // ── Constructor ──────────────────────────────────────────────────
     public Player(GamePanel gp, Move keyB) {
@@ -141,11 +142,18 @@ public class Player extends Entity {
         else                     { showAttack = false; }
         if (levelUpTimer > 0)    levelUpTimer--;
 
-        // Auto-pickup coins
-        autoPickupCoins();
+        // Auto-pickup (coins, keys, potions)
+        autoPickup();
 
-        // Keys
-        if (keyB.interactPressed) { keyB.interactPressed = false; interact(); }
+        // Interact với cooldown chống spam
+        if (interactCooldown > 0) interactCooldown--;
+        if (keyB.interactPressed) {
+            keyB.interactPressed = false;
+            if (interactCooldown == 0) {
+                interact();
+                interactCooldown = 30;  // 0.5 giây cooldown
+            }
+        }
         if (keyB.attackPressed)   { keyB.attackPressed   = false; doAttack(); }
 
         // Death check
@@ -156,21 +164,37 @@ public class Player extends Entity {
         }
     }
 
-    // ── Auto-pickup coins (walk-over) ────────────────────────────────
-    private void autoPickupCoins() {
+    // ── Auto-pickup (walk-over): coins, keys, potions ────────────────
+    private void autoPickup() {
         Rectangle myBox = currentBox();
         for (int i = 0; i < gp.obj.length; i++) {
+            if (gp.obj[i] == null) continue;
+            Rectangle oBox = new Rectangle(
+                gp.obj[i].worldX + gp.obj[i].solidArea.x,
+                gp.obj[i].worldY + gp.obj[i].solidArea.y,
+                gp.obj[i].solidArea.width, gp.obj[i].solidArea.height);
+            if (!myBox.intersects(oBox)) continue;
+
             if (gp.obj[i] instanceof Coin c) {
-                Rectangle cBox = new Rectangle(
-                    gp.obj[i].worldX + gp.obj[i].solidArea.x,
-                    gp.obj[i].worldY + gp.obj[i].solidArea.y,
-                    gp.obj[i].solidArea.width, gp.obj[i].solidArea.height);
-                if (myBox.intersects(cBox)) {
-                    coins += c.value;
+                coins += c.value;
+                gp.obj[i] = null;
+                Sound.play("coin");
+                gp.ui.showMessage("+" + c.value + " 🪙  [Tổng: " + coins + "]");
+
+            } else if (gp.obj[i] instanceof Key) {
+                keys++;
+                gp.obj[i] = null;
+                gp.ui.showMessage("Nhặt chìa khóa!  [🗝 × " + keys + "]");
+                Sound.play("pickup");
+
+            } else if (gp.obj[i] instanceof Potion pot) {
+                if (hp < maxHp) {
+                    hp = Math.min(maxHp, hp + pot.healAmount);
                     gp.obj[i] = null;
-                    Sound.play("coin");
-                    gp.ui.showMessage("+" + c.value + " 🪙  [Tổng: " + coins + "]");
+                    gp.ui.showMessage("Uống thuốc! +" + pot.healAmount + " HP ❤");
+                    Sound.play("pickup");
                 }
+                // Nếu HP đầy → để lại trên sàn, nhặt sau khi bị đánh
             }
         }
     }
@@ -193,13 +217,7 @@ public class Player extends Entity {
     }
 
     private void handleObject(int idx, SuperObject o) {
-        if (o instanceof Key) {
-            keys++;
-            gp.obj[idx] = null;
-            gp.ui.showMessage("Nhặt chìa khóa! [🗝 × " + keys + "]");
-            Sound.play("pickup");
-
-        } else if (o instanceof Door) {
+        if (o instanceof Door) {
             if (keys > 0) {
                 keys--;
                 gp.obj[idx] = null;
@@ -217,16 +235,6 @@ public class Player extends Entity {
                 catch (Exception ex) { ex.printStackTrace(); }
                 gp.gameState = GameState.WIN;
                 Sound.play("win");
-            }
-
-        } else if (o instanceof Potion pot) {
-            if (hp < maxHp) {
-                hp = Math.min(maxHp, hp + pot.healAmount);
-                gp.obj[idx] = null;
-                gp.ui.showMessage("Uống thuốc! +" + pot.healAmount + " HP ❤");
-                Sound.play("pickup");
-            } else {
-                gp.ui.showMessage("HP đã đầy rồi!");
             }
 
         } else if (o instanceof EquipItem equip) {
@@ -361,7 +369,7 @@ public class Player extends Entity {
     }
 
     private Rectangle attackBox() {
-        Rectangle b = currentBox(); int r = 64;
+        Rectangle b = currentBox(); int r = 90;
         return switch (direction) {
             case "up"   -> new Rectangle(b.x, b.y - r, b.width, b.height + r);
             case "down" -> new Rectangle(b.x, b.y, b.width, b.height + r);
