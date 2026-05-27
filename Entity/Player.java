@@ -164,7 +164,7 @@ public class Player extends Entity {
         }
     }
 
-    // ── Auto-pickup (walk-over): coins, keys, potions ────────────────
+    // ── Auto-pickup (walk-over): coins, keys, potions, equipment ────────
     private void autoPickup() {
         Rectangle myBox = currentBox();
         for (int i = 0; i < gp.obj.length; i++) {
@@ -195,6 +195,19 @@ public class Player extends Entity {
                     Sound.play("pickup");
                 }
                 // Nếu HP đầy → để lại trên sàn, nhặt sau khi bị đánh
+
+            } else if (gp.obj[i] instanceof EquipItem equip) {
+                // Trang bị ngay khi đi qua – thay slot tương ứng
+                equipItem(equip);
+                gp.obj[i] = null;
+
+            } else if (gp.obj[i] instanceof Portal portal) {
+                // Bước vào portal → chuyển màn ngay (không cần E)
+                Sound.play("portal");
+                gp.ui.showMessage("Chuyển sang Màn " + portal.targetLevel + "!");
+                Main.SaveManager.save(gp);
+                gp.loadLevel(portal.targetLevel);
+                return;  // obj[] đã được reset, thoát vòng lặp ngay
             }
         }
     }
@@ -233,8 +246,18 @@ public class Player extends Entity {
                 chest.opened = true;
                 try { chest.image = ImageIO.read(getClass().getResourceAsStream("/objects/chest_opened.png")); }
                 catch (Exception ex) { ex.printStackTrace(); }
-                gp.gameState = GameState.WIN;
-                Sound.play("win");
+
+                if (gp.currentLevel >= gp.MAX_LEVEL) {
+                    // Level 3: WIN!
+                    gp.gameState = GameState.WIN;
+                    Sound.play("win");
+                } else {
+                    // Level 1-2: thưởng coins khi mở rương
+                    int reward = 10 + gp.currentLevel * 5;
+                    coins += reward;
+                    gp.ui.showMessage("🎁 Rương kho báu! +" + reward + " 🪙");
+                    Sound.play("pickup");
+                }
             }
 
         } else if (o instanceof EquipItem equip) {
@@ -242,16 +265,11 @@ public class Player extends Entity {
             gp.obj[idx] = null;
 
         } else if (o instanceof Portal portal) {
-            if (gp.currentLevel < gp.MAX_LEVEL) {
-                Sound.play("portal");
-                gp.ui.showMessage("Chuyển sang Màn " + portal.targetLevel + "!");
-                Main.SaveManager.save(gp);
-                gp.loadLevel(portal.targetLevel);
-            } else {
-                // Level 3 portal = WIN
-                gp.gameState = GameState.WIN;
-                Sound.play("win");
-            }
+            // Portal tự trigger qua autoPickup(); case E là fallback
+            Sound.play("portal");
+            gp.ui.showMessage("Chuyển sang Màn " + portal.targetLevel + "!");
+            Main.SaveManager.save(gp);
+            gp.loadLevel(portal.targetLevel);
 
         } else if (o instanceof NPC) {
             gp.gameState = GameState.SHOP;
@@ -292,6 +310,13 @@ public class Player extends Entity {
                 enemy.alive = false;
                 gainXP(enemy.xpReward);
                 dropLoot(enemy);
+
+                // Boss chết ở level 3 → WIN ngay
+                if (enemy.type == 3) {
+                    gp.ui.showMessage("⚔ BOSS ĐÃ BỊ ĐÁNH BẠI! 🏆 Bạn là anh hùng!");
+                    Sound.play("win");
+                    gp.gameState = GameState.WIN;
+                }
             }
         }
     }
